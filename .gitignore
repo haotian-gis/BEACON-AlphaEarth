@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# IDE and operating system
+.DS_Store
+.vscode/
+.idea/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Data, model artifacts, and experiment outputs
+data/raw/
+data/interim/
+data/processed/
+outputs/
+results/
+checkpoints/
+weights/
+wandb/
+mlruns/
+*.pt
+*.pth
+*.ckpt
+*.npy
+*.npz
+*.parquet
+*.tif
+*.tiff
