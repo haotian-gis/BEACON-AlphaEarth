@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use BEACON in your research, please cite the ACM SIGSPATIAL 2026 paper."
+title: "BEACON: Behavioral and Semantic Enrichment of AlphaEarth Embeddings through Tri-Modal Contrastive Learning"
+type: software
+authors:
+  - family-names: Tian
+    given-names: Hao
+    email: haotian@tamu.edu
+  - family-names: Cai
+    given-names: Heng
+  - family-names: Yang
+    given-names: Yifan
+repository-code: "https://github.com/haotian-gis/BEACON-AlphaEarth"
+url: "https://doi.org/10.1145/3841645.3843383"
+license: MIT
+preferred-citation:
+  type: conference-paper
+  authors:
+    - family-names: Tian
+      given-names: Hao
+    - family-names: Cai
+      given-names: Heng
+    - family-names: Yang
+      given-names: Yifan
+  title: "BEACON: Behavioral and Semantic Enrichment of AlphaEarth Embeddings through Tri-Modal Contrastive Learning"
+  collection-title: "The 34th ACM International Conference on Advances in Geographic Information Systems"
+  year: 2026
+  doi: "10.1145/3841645.3843383"
