@@ -18,15 +18,11 @@ BEACON addresses this limitation with a tri-modal contrastive learning framework
 
 POI text and mobility provide supervision during training. After training, BEACON generates a 128-dimensional representation from AlphaEarth inputs alone, so deployment does not require POI or mobility data.
 
-```mermaid
-flowchart LR
-    AE[AlphaEarth embeddings<br/>physical context] --> CL[Tri-modal<br/>contrastive learning]
-    POI[POI descriptions<br/>urban semantics] --> CL
-    MOB[POI visitation profiles<br/>human behavior] --> CL
-    CL --> B[BEACON embeddings]
-    B --> H[Human-centered<br/>urban prediction]
-    B --> P[Physical and environmental<br/>prediction]
-```
+<p align="center">
+  <img src="docs/images/beacon_framework.jpg" width="100%" alt="BEACON tri-modal contrastive learning framework and downstream evaluation workflow">
+</p>
+
+<p align="center"><em>Figure 1. BEACON aligns physical, semantic, and behavioral views during pretraining, then uses AlphaEarth alone for downstream inference.</em></p>
 
 ## Study design
 
@@ -41,19 +37,87 @@ The study uses the Houston-The Woodlands-Sugar Land Metropolitan Statistical Are
 - **Evaluation:** seven regression and two classification tasks, using frozen linear and MLP probes over five seeds
 - **Baselines:** coordinates, Space2Vec, SatCLIP, TESSERA, Clay, and AlphaEarth
 
+## Method
+
+BEACON constructs three views for every POI anchor:
+
+- **Physical view:** a 64-dimensional AlphaEarth vector at the POI, plus mean-pooled 9 x 9 and 19 x 19 neighborhoods. A shared projector maps all three scales to a 128-dimensional space.
+- **Semantic view:** POI name, category, top category, subcategory, and NAICS descriptions are encoded into a 384-dimensional text representation.
+- **Behavioral view:** a 184-dimensional vector combines 168 hour-of-week visit counts, 12 monthly counts, and four activity descriptors.
+
+The training objective is a weighted sum of four symmetric InfoNCE losses:
+
+| Alignment pair | Weight |
+|---|---:|
+| AlphaEarth ↔ POI semantics | 0.35 |
+| AlphaEarth ↔ mobility behavior | 0.35 |
+| POI semantics ↔ mobility behavior | 0.15 |
+| Local ↔ contextual AlphaEarth | 0.15 |
+
+Training uses temperature 0.07, AdamW with a 1e-3 learning rate and 1e-4 weight decay, cosine scheduling, batch size 512, and 100 epochs. The POIs are divided into 80/10/10 train, validation, and test splits. At inference time, only the AlphaEarth branch is retained.
+
+## Downstream benchmarks
+
+| Task | Spatial support | Samples | Type |
+|---|---|---:|---|
+| Median household income | Census block group | 4,174 | Regression |
+| Obesity prevalence | Census tract | 1,613 | Regression |
+| Poor mental health | Census tract | 1,613 | Regression |
+| Nighttime lights | 500 m grid | 139,186 | Regression |
+| Daytime land-surface temperature | 1 km grid | 27,424 | Regression |
+| Nighttime land-surface temperature | 1 km grid | 27,424 | Regression |
+| PM2.5 concentration | 0.01 degree grid | 24,338 | Regression |
+| Land cover | 10 m samples | 298,944 | Classification |
+| Functional land use | Parcels | 255,431 | Classification |
+
+## Training dynamics
+
+<p align="center">
+  <img src="docs/images/training_dynamics.jpg" width="100%" alt="BEACON training losses, cross-modal retrieval, and similarity matrices">
+</p>
+
+<p align="center"><em>Figure 2. Training and validation losses, relative pairwise losses, cross-modal retrieval, and similarity structure before and after training.</em></p>
+
+The model converges stably, with the best validation checkpoint at epoch 95. Local-context consistency and AlphaEarth-mobility alignment are the strongest relative alignment terms. Mobility retrieval is stronger than POI-semantic retrieval, and the post-training similarity matrices show substantially clearer cross-modal correspondence.
+
 ## Main results
 
 Under a frozen linear probe, BEACON improves human-centered prediction while remaining competitive on physical and environmental tasks.
 
-| Downstream target | AlphaEarth | BEACON | Relative improvement |
-|---|---:|---:|---:|
-| Median household income, R² | 0.379 | **0.463** | **+22%** |
-| Obesity prevalence, R² | 0.431 | **0.614** | **+43%** |
-| Poor mental health, R² | 0.393 | **0.528** | **+34%** |
-| Nighttime lights, R² | 0.663 | **0.680** | +3% |
-| Functional land use, Macro-F1 | 0.456 | **0.471** | +3% |
+### Regression
 
-BEACON remains close to AlphaEarth on land-surface temperature and PM2.5 prediction. AlphaEarth retains the strongest land-cover classification result, while BEACON ranks second. Ablations show that POI semantics and mobility behavior provide complementary supervision.
+| Downstream target | AlphaEarth R² | BEACON R² | Relative change |
+|---|---:|---:|---:|
+| Median household income | 0.379 | **0.463** | **+22%** |
+| Obesity prevalence | 0.431 | **0.614** | **+43%** |
+| Poor mental health | 0.393 | **0.528** | **+34%** |
+| Nighttime lights | 0.663 | **0.680** | +3% |
+| Daytime land-surface temperature | 0.840 | **0.843** | +0.4% |
+| Nighttime land-surface temperature | **0.792** | 0.787 | -0.6% |
+| PM2.5 concentration | 0.845 | **0.856** | +1.3% |
+
+### Classification
+
+| Downstream target | AlphaEarth Macro-F1 | BEACON Macro-F1 |
+|---|---:|---:|
+| Land cover | **0.584** | 0.567 |
+| Functional land use | 0.456 | **0.471** |
+
+### Ablation study
+
+The ablation results summarize performance across all downstream tasks. The human-centered score aggregates income, obesity, mental health, and functional land use; the physical/environmental score aggregates nighttime lights, land-surface temperature, PM2.5, and land cover.
+
+| Representation | Human-centered score | Physical/environmental score |
+|---|---:|---:|
+| Mobility only | 0.011 | 0.015 |
+| POI semantics only | 0.288 | 0.199 |
+| Raw feature concatenation | 0.294 | 0.644 |
+| AlphaEarth | 0.401 | 0.743 |
+| AlphaEarth + mobility | 0.475 | 0.736 |
+| AlphaEarth + POI semantics | 0.494 | 0.750 |
+| **BEACON** | **0.535** | **0.759** |
+
+BEACON delivers its largest gains on human-centered targets while preserving AlphaEarth's strength on physical and environmental prediction. The ablations show that POI semantics and mobility behavior provide complementary supervision; contrastive alignment is more effective than raw feature concatenation.
 
 ## Repository status
 
@@ -91,13 +155,14 @@ export BEACON_GEE_POI_ASSET=projects/PROJECT/assets/ASSET
 
 External-service and cloud-export sections are disabled by default. Review the configuration cell in each notebook before enabling them.
 
-## Planned structure
+## Repository structure
 
 ```text
 .
 ├── configs/            experiment and dataset configuration
 ├── data/               data-access notes; no restricted data
-├── docs/               method and reproducibility documentation
+├── docs/               method documentation and paper figures
+│   └── images/         framework and training-dynamics figures
 ├── notebooks/          complete data, training, and evaluation pipeline
 ├── src/                training, inference, probes, and evaluation
 ├── CITATION.cff
